@@ -1,0 +1,157 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model accounts {
+  id                  String  @id
+  user_id             String
+  type                String
+  provider            String
+  provider_account_id String
+  refresh_token       String?
+  access_token        String?
+  expires_at          Int?
+  token_type          String?
+  scope               String?
+  id_token            String?
+  session_state       String?
+  users               users   @relation(fields: [user_id], references: [id], onDelete: Cascade)
+
+  @@unique([provider, provider_account_id])
+}
+
+model activity_log {
+  id          String   @id
+  client_id   String
+  action      String
+  description String?
+  metadata    Json     @default("{}")
+  created_at  DateTime @default(now())
+  clients     clients  @relation(fields: [client_id], references: [id], onDelete: Cascade)
+
+  @@index([client_id])
+  @@index([created_at])
+}
+
+model audit_scores {
+  id         String   @id
+  client_id  String
+  org_id     String
+  score      Int
+  auditor    String?
+  notes      String?
+  audit_date DateTime
+  created_at DateTime @default(now())
+  clients    clients  @relation(fields: [client_id], references: [id], onDelete: Cascade)
+
+  @@index([audit_date])
+  @@index([client_id])
+}
+
+model client_users {
+  id         String   @id
+  auth_id    String?
+  client_id  String
+  org_id     String
+  role       String   @default("viewer")
+  name       String?
+  email      String
+  created_at DateTime @default(now())
+  clients    clients  @relation(fields: [client_id], references: [id], onDelete: Cascade)
+
+  @@index([auth_id])
+  @@index([client_id])
+  @@index([email])
+}
+
+model clients {
+  id            String         @id
+  org_id        String
+  name          String
+  slug          String         @default("")
+  dropbox_path  String?
+  contract_ref  String?
+  cell_type     String?
+  contact_name  String?
+  contact_email String?
+  logo_url      String?
+  is_active     Boolean        @default(true)
+  created_at    DateTime       @default(now())
+  activity_log  activity_log[]
+  audit_scores  audit_scores[]
+  client_users  client_users[]
+  organisations organisations  @relation(fields: [org_id], references: [id])
+  documents     documents[]
+
+  @@index([org_id])
+}
+
+model documents {
+  id            String    @id
+  client_id     String
+  org_id        String
+  dropbox_path  String
+  dropbox_id    String?   @unique
+  file_name     String
+  file_type     String?
+  file_size     Int?
+  category      String?
+  folder        String?
+  last_modified DateTime?
+  synced_at     DateTime  @default(now())
+  created_at    DateTime  @default(now())
+  clients       clients   @relation(fields: [client_id], references: [id], onDelete: Cascade)
+
+  @@index([client_id])
+  @@index([org_id])
+}
+
+model organisations {
+  id              String    @id
+  name            String
+  slug            String    @default("")
+  logo_url        String?
+  primary_color   String    @default("#2c5f2d")
+  secondary_color String    @default("#f9a825")
+  created_at      DateTime  @default(now())
+  clients         clients[]
+}
+
+model sessions {
+  id            String   @id
+  session_token String   @unique
+  user_id       String
+  expires       DateTime
+  users         users    @relation(fields: [user_id], references: [id], onDelete: Cascade)
+}
+
+model super_admins {
+  id         String   @id
+  auth_id    String?
+  name       String?
+  email      String   @unique
+  created_at DateTime @default(now())
+}
+
+model users {
+  id             String     @id
+  name           String?
+  email          String?    @unique
+  email_verified DateTime?
+  image          String?
+  accounts       accounts[]
+  sessions       sessions[]
+}
+
+model verification_tokens {
+  identifier String
+  token      String
+  expires    DateTime
+
+  @@unique([identifier, token])
+}
